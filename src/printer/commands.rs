@@ -1,571 +1,307 @@
-use super::PrinterCommand;
+#![allow(dead_code)]
 
-/// Print and line feed
+use super::sanitize;
+
+trait Encode {
+    fn encode(&self) -> Vec<u8>;
+}
+
 #[derive(Debug)]
-pub struct LineFeed;
-impl<'a> PrinterCommand<'a> for LineFeed {
+pub struct Millimeters(pub u16);
+impl Millimeters {
+    /// Used for encoding the value into two parts
+    fn encode_double(&self) -> Vec<u8> {
+        let [high, low] = super::split((self.0 as f32 / 0.125f32) as u16);
+        vec![low, high]
+    }
+}
+impl Encode for Millimeters {
     fn encode(&self) -> Vec<u8> {
-        vec![0x0A]
+        vec![(self.0 as f32 / 0.125f32) as u8]
     }
 }
 
-/// Print and carriage return
-#[derive(Debug)]
-pub struct CarriageReturn;
-impl<'a> PrinterCommand<'a> for CarriageReturn {
-    fn encode(&self) -> Vec<u8> {
-        vec![0x0D]
-    }
+#[derive(Debug, Clone, Copy)]
+pub enum Justify {
+    Left = 0,
+    Center = 1,
+    Right = 2,
 }
 
-/// Horizontal tab
-#[derive(Debug)]
-pub struct HorizontalTab;
-impl<'a> PrinterCommand<'a> for HorizontalTab {
-    fn encode(&self) -> Vec<u8> {
-        vec![0x09]
-    }
+#[derive(Debug, Clone, Copy)]
+pub struct PrintMode {
+    use_font_b: bool,
+    reverse: bool,
+    upside_down: bool,
+    emphasize: bool,
+    double_height: bool,
+    double_width: bool,
+    delete_line: bool,
+    _undefined: bool,
 }
 
-/// Print the data in buffer
 #[derive(Debug)]
-pub struct PrintBuffer;
-impl<'a> PrinterCommand<'a> for PrintBuffer {
-    fn encode(&self) -> Vec<u8> {
-        vec![0x0D]
-    }
+pub(crate) enum Command<'a> {
+    /// Raw Data
+    Raw(&'a [u8]),
+
+    /// Text Data (Unsafe characters omitted)
+    Text(&'a str),
+
+    /// Print and line feed
+    LineFeed,
+
+    /// Print and carriage return
+    CarriageReturn,
+
+    /// Horizontal tab
+    HorizontalTab,
+
+    /// Print the data in buffer
+    PrintBuffer,
+
+    /// Set horizontal tab positions
+    HTabPositionsSet(&'a [u8]),
+
+    /// Print and Feed $n dots paper
+    FeedMillimeters(Millimeters),
+
+    /// Print and Feed $n lines
+    FeedLines(u8),
+
+    /// Set peripheral device
+    OnlineSet(bool),
+
+    /// Select default line spacing
+    LineSpacingReset,
+
+    /// Set line spacing
+    LineSpacingSet(Millimeters),
+
+    /// Select justification
+    JustifySet(Justify),
+
+    /// Select Double Width mode
+    DoubleWidthSet,
+
+    /// Disable Double Width mode
+    DoubleWidthReset,
+
+    /// Set left margin
+    LeftMarginSet(Millimeters),
+
+    /// Set absolute print position
+    PositionSet(Millimeters),
+
+    /// Set Left Space
+    LeftSpaceSet(u8),
+
+    /// Select print mode(s)
+    PrintModeSet(PrintMode),
+
+    /// Select character size
+    FontSizeSet(u8),
+
+    /// Turn white/black reverse printing mode
+    InvertSet(bool),
+
+    /// Turn 90°clockwise rotation mode on/off
+    RotateSet(u8),
+
+    /// Turn on/off double-strike mode
+    DoubleStrikeSet(u8),
+
+    /// Turn emphasized mode on/off
+    EmphasizeSet(u8),
+
+    /// Set right-side character spacing
+    RightSpaceSet(u8),
+
+    /// Turns on/off upside-down printing mode
+    UpsideDownSet(u8),
+
+    /// Set the underline dots(0,1,2)
+    UnderlineSet(u8),
+
+    /// Select Kanji/Chinese character mode (Note: Unsure if Kanji OR Chinese)
+    CharChineseEnable,
+
+    /// Cancel Kanji/Chinese character mode
+    CharChineseDisable,
+
+    /// Set print mode for Kanji/Chinese characters
+    CharChinesePrintMode(u8),
+
+    /// Select/Cancel user-defined characters
+    CharUserEnable(u8),
+
+    /// Define user-defined characters
+    CharUserDefine(u8),
+
+    /// Cancel user-defined characters
+    CharUserCancel(u8),
+
+    /// Select international character set
+    CharInternationalSet(u8),
+
+    /// Select character code table
+    CharCodePageSet(u8),
+
+    /// Select bit-image mode
+    BitmapModeSet(u8),
+
+    /// Define downloaded bit image
+    BitmapDefine(u8),
+
+    /// Print downloaded bit image
+    BitmapPrintDefined(u8),
+
+    /// Print raster bit image
+    BitmapPrintRaster(u8),
+
+    /// Print the bitmap
+    BitmapPrintData(u8),
+
+    /// Print MSB bitmap
+    BitmapPrintDataMsb(u8),
+
+    /// Print LSB bitmap
+    BitmapPrintDataLsb(u8),
+
+    /// Print NV bitmap
+    BitmapPrintNv(u8, u8),
+
+    /// Define NV bitmap
+    BitmapDefineNv(u8),
+
+    /// Initialize the printer
+    Reset,
+
+    /// (Serial Only) Transmit status
+    RequestStatus(u8),
+
+    /// (Serial Only) Enable/Disable Automatic Status Back(ASB)
+    RequestStatusAutoEnable(u8),
+
+    /// (Serial Only) Transmit paper sensor status
+    RequestStatusPaperSensor,
+
+    /// (Serial Only) Transmit peripheral device status (For drawer)
+    RequestStatusDrawer(u8),
+
+    /// Select printing position for HRI characters
+    BarcodeHriPositionSet(u8),
+
+    /// Set bar code height
+    BarcodeHeightSet(u8),
+
+    /// Set bar code width
+    BarcodeWidthSet(u8),
+
+    /// Print bar code
+    BarcodePrint(u8),
+
+    /// Set barcode printing left space
+    BarcodePositionSet(u8),
+
+    /// Specify the mode of QR code by n1
+    QrCode(u8),
+
+    /// Setting Control Parameter Command
+    SettingsSet(u8),
+
+    /// Select sleeping parameter
+    SleepTimeoutSet(u8),
+
+    /// Select Chinese code format
+    ChineseCodeFormatSet(u8),
+
+    /// Set printing density
+    PrintingDensitySet(u8),
+
+    /// Printing test page
+    PrintTestPage,
+
+    /// Enable/disable panel buttons (For button)
+    ButtonsEnable(u8),
+
+    /// Real-time transmission mode
+    RealTimeEnable(u8),
+
+    /// Feed Paper to Mark
+    FeedToMark,
+
+    /// Set Mark paper length
+    MarkPaperLengthSet(u8),
 }
 
-/// Set horizontal tab positions
-#[derive(Debug)]
-pub struct HTabPositionsSet<'a>(pub &'a [u8]);
-impl<'a> PrinterCommand<'a> for HTabPositionsSet<'a> {
-    fn encode(&self) -> Vec<u8> {
-        super::compose(&[0x1B, 0x44], self.0, &[0x00], 32)
-    }
-}
-
-/// Print and Feed $n dots paper
-#[derive(Debug)]
-pub struct FeedMillimeters(pub u8);
-impl<'a> PrinterCommand<'a> for FeedMillimeters {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print and Feed $n lines
-#[derive(Debug)]
-pub struct FeedLines(pub u8);
-impl<'a> PrinterCommand<'a> for FeedLines {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set peripheral device
-#[derive(Debug)]
-pub struct OnlineSet(pub u8);
-impl<'a> PrinterCommand<'a> for OnlineSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select default line spacing
-#[derive(Debug)]
-pub struct LineSpacingReset;
-impl<'a> PrinterCommand<'a> for LineSpacingReset {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set line spacing
-#[derive(Debug)]
-pub struct LineSpacingSet(pub u8);
-impl<'a> PrinterCommand<'a> for LineSpacingSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select justification
-#[derive(Debug)]
-pub struct JustifySet(pub u8);
-impl<'a> PrinterCommand<'a> for JustifySet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select Double Width mode
-#[derive(Debug)]
-pub struct DoubleWidthSet(pub u8);
-impl<'a> PrinterCommand<'a> for DoubleWidthSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Disable Double Width mode
-#[derive(Debug)]
-pub struct DoubleWidthReset(pub u8);
-impl<'a> PrinterCommand<'a> for DoubleWidthReset {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set left margin
-#[derive(Debug)]
-pub struct LeftMarginSet(u8, u8);
-impl<'a> PrinterCommand<'a> for LeftMarginSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set absolute print position
-#[derive(Debug)]
-pub struct PositionSet(u8, u8);
-impl<'a> PrinterCommand<'a> for PositionSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set Left Space
-#[derive(Debug)]
-pub struct LeftSpaceSet(pub u8);
-impl<'a> PrinterCommand<'a> for LeftSpaceSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select print mode(s)
-#[derive(Debug)]
-pub struct PrintModeSet(pub u8);
-impl<'a> PrinterCommand<'a> for PrintModeSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select character size
-#[derive(Debug)]
-pub struct FontSizeSet(pub u8);
-impl<'a> PrinterCommand<'a> for FontSizeSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Turn white/black reverse printing mode
-#[derive(Debug)]
-pub struct InvertSet(pub u8);
-impl<'a> PrinterCommand<'a> for InvertSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Turn 90°clockwise rotation mode on/off
-#[derive(Debug)]
-pub struct RotateSet(pub u8);
-impl<'a> PrinterCommand<'a> for RotateSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Turn on/off double-strike mode
-#[derive(Debug)]
-pub struct DoubleStrikeSet(pub u8);
-impl<'a> PrinterCommand<'a> for DoubleStrikeSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Turn emphasized mode on/off
-#[derive(Debug)]
-pub struct EmphasizeSet(pub u8);
-impl<'a> PrinterCommand<'a> for EmphasizeSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set right-side character spacing
-#[derive(Debug)]
-pub struct RightSpaceSet(pub u8);
-impl<'a> PrinterCommand<'a> for RightSpaceSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Turns on/off upside-down printing mode
-#[derive(Debug)]
-pub struct UpsideDownSet(pub u8);
-impl<'a> PrinterCommand<'a> for UpsideDownSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set the underline dots(0,1,2)
-#[derive(Debug)]
-pub struct UnderlineSet(pub u8);
-impl<'a> PrinterCommand<'a> for UnderlineSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select Kanji/Chinese character mode (Note: Unsure if Kanji OR Chinese)
-#[derive(Debug)]
-pub struct CharChineseEnable;
-impl<'a> PrinterCommand<'a> for CharChineseEnable {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Cancel Kanji/Chinese character mode
-#[derive(Debug)]
-pub struct CharChineseDisable;
-impl<'a> PrinterCommand<'a> for CharChineseDisable {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set print mode for Kanji/Chinese characters
-#[derive(Debug)]
-pub struct CharChinesePrintMode(pub u8);
-impl<'a> PrinterCommand<'a> for CharChinesePrintMode {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select/Cancel user-defined characters
-#[derive(Debug)]
-pub struct CharUserEnable(pub u8);
-impl<'a> PrinterCommand<'a> for CharUserEnable {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Define user-defined characters
-#[derive(Debug)]
-pub struct CharUserDefine(pub u8);
-impl<'a> PrinterCommand<'a> for CharUserDefine {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Cancel user-defined characters
-#[derive(Debug)]
-pub struct CharUserCancel(pub u8);
-impl<'a> PrinterCommand<'a> for CharUserCancel {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select international character set
-#[derive(Debug)]
-pub struct CharInternationalSet(pub u8);
-impl<'a> PrinterCommand<'a> for CharInternationalSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select character code table
-#[derive(Debug)]
-pub struct CharCodePageSet(pub u8);
-impl<'a> PrinterCommand<'a> for CharCodePageSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select bit-image mode
-#[derive(Debug)]
-pub struct BitmapModeSet(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapModeSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Define downloaded bit image
-#[derive(Debug)]
-pub struct BitmapDefine(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapDefine {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print downloaded bit image
-#[derive(Debug)]
-pub struct BitmapPrintDefined(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapPrintDefined {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print raster bit image
-#[derive(Debug)]
-pub struct BitmapPrintRaster(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapPrintRaster {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print the bitmap
-#[derive(Debug)]
-pub struct BitmapPrintData(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapPrintData {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print MSB bitmap
-#[derive(Debug)]
-pub struct BitmapPrintDataMsb(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapPrintDataMsb {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print LSB bitmap
-#[derive(Debug)]
-pub struct BitmapPrintDataLsb(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapPrintDataLsb {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print NV bitmap
-#[derive(Debug)]
-pub struct BitmapPrintNv(u8, u8);
-impl<'a> PrinterCommand<'a> for BitmapPrintNv {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Define NV bitmap
-#[derive(Debug)]
-pub struct BitmapDefineNv(pub u8);
-impl<'a> PrinterCommand<'a> for BitmapDefineNv {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Initialize the printer
-#[derive(Debug)]
-pub struct Reset;
-impl<'a> PrinterCommand<'a> for Reset {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// (Serial Only) Transmit status
-#[derive(Debug)]
-pub struct RequestStatus(pub u8);
-impl<'a> PrinterCommand<'a> for RequestStatus {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// (Serial Only) Enable/Disable Automatic Status Back(ASB)
-#[derive(Debug)]
-pub struct RequestStatusAutoEnable(pub u8);
-impl<'a> PrinterCommand<'a> for RequestStatusAutoEnable {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// (Serial Only) Transmit paper sensor status
-#[derive(Debug)]
-pub struct RequestStatusPaperSensor;
-impl<'a> PrinterCommand<'a> for RequestStatusPaperSensor {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// (Serial Only) Transmit peripheral device status (For drawer)
-#[derive(Debug)]
-pub struct RequestStatusDrawer(pub u8);
-impl<'a> PrinterCommand<'a> for RequestStatusDrawer {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select printing position for HRI characters
-#[derive(Debug)]
-pub struct BarcodeHriPositionSet(pub u8);
-impl<'a> PrinterCommand<'a> for BarcodeHriPositionSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set bar code height
-#[derive(Debug)]
-pub struct BarcodeHeightSet(pub u8);
-impl<'a> PrinterCommand<'a> for BarcodeHeightSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set bar code width
-#[derive(Debug)]
-pub struct BarcodeWidthSet(pub u8);
-impl<'a> PrinterCommand<'a> for BarcodeWidthSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Print bar code
-#[derive(Debug)]
-pub struct BarcodePrint(pub u8);
-impl<'a> PrinterCommand<'a> for BarcodePrint {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set barcode printing left space
-#[derive(Debug)]
-pub struct BarcodePositionSet(pub u8);
-impl<'a> PrinterCommand<'a> for BarcodePositionSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Specify the mode of QR code by n1
-#[derive(Debug)]
-pub struct QrCode(pub u8);
-impl<'a> PrinterCommand<'a> for QrCode {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set the type of QR code graphic module
-// QRCode
-
-/// Set the error correction level error of QR code
-// QRCode
-
-/// The data stored for receiving QR codes is in a 2d barcode area
-// QRCode
-
-/// The data information types that transmit QR code graphics are in 2d barcode
-// QRCode
-
-/// Setting Control Parameter Command
-#[derive(Debug)]
-pub struct SettingsSet(pub u8);
-impl<'a> PrinterCommand<'a> for SettingsSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select sleeping parameter
-#[derive(Debug)]
-pub struct SleepTimeoutSet(pub u8);
-impl<'a> PrinterCommand<'a> for SleepTimeoutSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Select Chinese code format
-#[derive(Debug)]
-pub struct ChineseCodeFormatSet(pub u8);
-impl<'a> PrinterCommand<'a> for ChineseCodeFormatSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set printing density
-#[derive(Debug)]
-pub struct PrintingDensitySet(pub u8);
-impl<'a> PrinterCommand<'a> for PrintingDensitySet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Printing test page
-#[derive(Debug)]
-pub struct PrintTestPage;
-impl<'a> PrinterCommand<'a> for PrintTestPage {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Enable/disable panel buttons (For button)
-#[derive(Debug)]
-pub struct ButtonsEnable(pub u8);
-impl<'a> PrinterCommand<'a> for ButtonsEnable {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Real-time transmission mode
-#[derive(Debug)]
-pub struct RealTimeEnable(pub u8);
-impl<'a> PrinterCommand<'a> for RealTimeEnable {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Feed Paper to Mark
-#[derive(Debug)]
-pub struct FeedToMark;
-impl<'a> PrinterCommand<'a> for FeedToMark {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
-    }
-}
-
-/// Set Mark paper length
-#[derive(Debug)]
-pub struct MarkPaperLengthSet(pub u8);
-impl<'a> PrinterCommand<'a> for MarkPaperLengthSet {
-    fn encode(&self) -> Vec<u8> {
-        todo!();
+impl<'a> Command<'a> {
+    pub fn encode(&self) -> Vec<u8> {
+        match self {
+            Command::Raw(out) => out.to_vec(),
+            Command::Text(out) => sanitize(out),
+            Command::LineFeed => vec![0x0A],       //  `[0A]`
+            Command::CarriageReturn => vec![0x0D], //  `[0D]`
+            Command::HorizontalTab => vec![0x09],  //  `[09]`
+            Command::PrintBuffer => vec![0x0D],    //  `[0C]`
+            Command::HTabPositionsSet(arr) => super::compose(&[0x1B, 0x44], arr, &[0x00], 32), //  `[1B, 44, $^, 00]
+            Command::FeedMillimeters(mm) => [vec![0x1B, 0x4A], mm.encode()].concat(), //  `[1B, 4A, $n]`
+            Command::FeedLines(lines) => vec![0x1B, 0x64, *lines], //  `[1B, 64, $n]`
+            Command::OnlineSet(state) => vec![0x1B, 0x3D, *state as u8], //  `[1B, 3D, $n]`
+            Command::LineSpacingReset => vec![0x1B, 0x32],         //  `[1B, 32]`
+            Command::LineSpacingSet(mm) => [vec![0x1B, 0x33], mm.encode()].concat(), //  `[1B, 33, $n]`
+            Command::JustifySet(justify) => vec![0x1B, 0x61, *justify as u8], //  `[1B, 61, $n]`
+            Command::DoubleWidthSet => vec![0x1B, 0x0E],                      //  `[1B, 0E]`
+            Command::DoubleWidthReset => vec![0x1B, 0x14],                    //  `[1B, 14]`
+            Command::LeftMarginSet(mm) => [vec![0x1D, 0x4C], mm.encode_double()].concat(), //  `[1D, 4C, $n, $n]
+            Command::PositionSet(mm) => [vec![0x1B, 0x24], mm.encode_double()].concat(), //  `[1B, 24, $n, $n]
+            Command::LeftSpaceSet(n) => vec![0x1B, 0x42, *n], //  `[1B, 42, $n]`
+            Command::PrintModeSet(_mode) => todo!(),          //  `[1B, 21, $n]`
+            Command::FontSizeSet(_) => todo!(),               //  `[1D, 21, $n]`
+            Command::InvertSet(set) => vec![0x1D, 0x42, *set as u8], //  `[1D, 42, $n]`
+            Command::RotateSet(_) => todo!(),                 //  `[1B, 56, $n]`
+            Command::DoubleStrikeSet(_) => todo!(),           //  `[1B, 47, $n]`
+            Command::EmphasizeSet(_) => todo!(),              //  `[1B, 69, $n]`
+            Command::RightSpaceSet(_) => todo!(),             //  `[1B, 20, $n]`
+            Command::UpsideDownSet(_) => todo!(),             //  `[1B, 7B, $n]`
+            Command::UnderlineSet(_) => todo!(),              //  `[1B, 2D, $n]`
+            Command::CharChineseEnable => todo!(),            //  `[1C, 26]`
+            Command::CharChineseDisable => todo!(),           //  `[1C, 2E]`
+            Command::CharChinesePrintMode(_) => todo!(),      //  `[1C, 21, $n]`
+            Command::CharUserEnable(_) => todo!(),            //  `[1B, 25, $n]`
+            Command::CharUserDefine(_) => todo!(),            //  `[1B, 26, $^]`
+            Command::CharUserCancel(_) => todo!(),            //  `[1B, 3F, $n]`
+            Command::CharInternationalSet(_) => todo!(),      //  `[1B, 52, $n]`
+            Command::CharCodePageSet(_) => todo!(),           //  `[1B, 74, $n]`
+            Command::BitmapModeSet(_) => todo!(),             //  `[1B, 2A, $^]`
+            Command::BitmapDefine(_) => todo!(),              //  `[1D, 2A, $^]`
+            Command::BitmapPrintDefined(_) => todo!(),        //  `[1D, 2F, $n]`
+            Command::BitmapPrintRaster(_) => todo!(),         //  `[1D, 76, 30, $^]
+            Command::BitmapPrintData(_) => todo!(),           //  `[12, 2A, $^]`
+            Command::BitmapPrintDataMsb(_) => todo!(),        //  `[12, 56, $^]`
+            Command::BitmapPrintDataLsb(_) => todo!(),        //  `[12, 76, $^]`
+            Command::BitmapPrintNv(_, _) => todo!(),          //  `[1C, 70, $n, $n]
+            Command::BitmapDefineNv(_) => todo!(),            //  `[1C, 71, $^]`
+            Command::Reset => vec![0x1B, 0x40],               //  `[1B, 40]`
+            Command::RequestStatus(_) => todo!(),             //  `[1D, 72, $n]`
+            Command::RequestStatusAutoEnable(_) => todo!(),   //  `[1D, 61, $n]`
+            Command::RequestStatusPaperSensor => todo!(),     //  `[1B, 76, $n]`
+            Command::RequestStatusDrawer(_) => todo!(),       //  `[1B, 75, $n]`
+            Command::BarcodeHriPositionSet(_) => todo!(),     //  `[1D, 48, $n]`
+            Command::BarcodeHeightSet(_) => todo!(),          //  `[1D, 68, $n]`
+            Command::BarcodeWidthSet(_) => todo!(),           //  `[1D, 77, $n]`
+            Command::BarcodePrint(_) => todo!(),              //  `[1D, 6B, $^]`
+            Command::BarcodePositionSet(_) => todo!(),        //  `[1D, 78, $n]`
+            Command::QrCode(_) => todo!(),
+            Command::SettingsSet(_) => todo!(), // `[1B, 37, $^]`
+            Command::SleepTimeoutSet(_) => todo!(), // `[1B, 38, $^]`
+            Command::ChineseCodeFormatSet(_) => todo!(), // `[1B, 39, $n]`
+            Command::PrintingDensitySet(_) => todo!(), // `[12, 23, $n]`
+            Command::PrintTestPage => vec![0x12, 0x54], // `[12, 54]`
+            Command::ButtonsEnable(_) => todo!(), // `[1B, 63, 35, $n]`
+            Command::RealTimeEnable(_) => todo!(), // `[10, 04, $n]`
+            Command::FeedToMark => vec![0x12, 0x45], // `[12, 45]`
+            Command::MarkPaperLengthSet(_) => todo!(), // `[12, 6D, $^]`
+        }
     }
 }

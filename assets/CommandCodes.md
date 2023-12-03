@@ -23,8 +23,8 @@ There is some nuance between the two sourced documentation, this is a collection
 | LineSpacingReset           | `ESC 2`                             | `[1B, 32]`         | ✔️  | ✔️  | Line     | Select default line spacing                                                      |
 | LineSpacingSet 1           | `ESC 3 $n`                          | `[1B, 33, $n]`     | ✔️  | ✔️  | Line     | Set line spacing                                                                 |
 | JustifySet 1               | `ESC a $n`                          | `[1B, 61, $n]`     | ✔️  | ✔️  | Line     | Select justification                                                             |
-| DoubleWidthSet 1           | `ESC SO $n`                         | `[1B, 0E, $n]`     | ✔️  | ✔️  | Line     | Select Double Width mode                                                         |
-| DoubleWidthReset 1         | `ESC DC4 $n`                        | `[1B, 14, $n]`     | ✔️  | ✔️  | Line     | Disable Double Width mode                                                        |
+| DoubleWidthSet             | `ESC SO`                            | `[1B, 0E]`         | ✔️  | ✔️  | Line     | Select Double Width mode                                                         |
+| DoubleWidthReset           | `ESC DC4`                           | `[1B, 14]`         | ✔️  | ✔️  | Line     | Disable Double Width mode                                                        |
 | LeftMarginSet 2            | `GS L nL nH`                        | `[1D, 4C, $n, $n]` | ✔️  | ✔️  | Line     | Set left margin                                                                  |
 | PositionSet 2              | `ESC $ nL nH`                       | `[1B, 24, $n, $n]` | ✔️  | ✔️  | Line     | Set absolute print position                                                      |
 | LeftSpaceSet 1             | `ESC B $n`                          | `[1B, 42, $n]`     | ✔️  | ✔️  | Line     | Set Left Space                                                                   |

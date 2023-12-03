@@ -6,6 +6,8 @@ use std::io::prelude::*;
 
 use printer::*;
 
+use crate::printer::commands::Millimeters;
+
 // enum Command<'a> {
 //     /// Any normal string
 //     Text(&'a str),
@@ -76,15 +78,29 @@ fn send_data(destination: &dyn WriteBuffer, buf: &[u8]) -> std::io::Result<()> {
 }
 
 fn main() -> std::io::Result<()> {
+    use commands::Command;
+
+    let qr: Vec<u8> = vec![0x1B, 0x40, 0x30, 0x30, 0x30, 0x0D, 0x0A, 0x1B, 0x69];
+
+    let a: Vec<Command> = vec![
+        Command::Raw(&qr),
+        // Command::Reset,
+        // Command::InvertSet(true),
+        // Command::Text("Hello!"),
+        // Command::LineFeed, // Command::FeedMillimeters(Millimeters(1)),
+    ];
+
     let destination = FileDestination("/dev/usb/lp0");
 
-    let contents = &[0x12,0x54,b'\n'];
+    let mut data: Vec<u8> = vec![];
 
-    let a = commands::HTabPositionsSet(&[1, 2, 3,5,5,5,5,7,3,2]);
+    for i in a.iter() {
+        data.append(&mut i.encode());
+    }
 
-    print!("{:?}", a.encode());
+    print!("{:?}", data);
 
-    // send_data(&destination, contents)?;
+    send_data(&destination, &data)?;
 
     Ok(())
 }
