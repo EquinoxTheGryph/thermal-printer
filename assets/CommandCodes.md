@@ -10,8 +10,8 @@ There is some nuance between the two sourced documentation, this is a collection
 > -   `$n` = One variable
 > -   `$^` = See documentation (Many Parameters)
 
-| Short Name                 | Ascii Code                          | Hex Sequence       | D1  | D2  | Category | Short Description                                                                |
-| -------------------------- | ----------------------------------- | ------------------ | --- | --- | -------- | -------------------------------------------------------------------------------- |
+| Short Name                 | Ascii Code                          | Hex Sequence       | D1  | D2  | Category | Short Description                                                                | Extra
+| -------------------------- | ----------------------------------- | ------------------ | --- | --- | -------- | -------------------------------------------------------------------------------- | ---
 | LineFeed                   | `LF`                                | `[0A]`             | ✔️  | ✔️  | Print    | Print and line feed                                                              |
 | CarriageReturn             | `CR`                                | `[0D]`             | ✔️  | ✔️  | Print    | Print and carriage return                                                        |
 | HorizontalTab              | `HT`                                | `[09]`             | ✔️  | ✔️  | Print    | Horizontal tab                                                                   |
@@ -64,11 +64,11 @@ There is some nuance between the two sourced documentation, this is a collection
 | BarcodeWidthSet 1          | `GS w $n`                           | `[1D, 77, $n]`     | ✔️  | ✔️  | Barcode  | Set bar code width                                                               |
 | BarcodePrint m             | `GS k $^`                           | `[1D, 6B, $^]`     | ✔️  | ✔️  | Barcode  | Print bar code                                                                   |
 | BarcodePositionSet 1       | `GS x $n`                           | `[1D, 78, $n]`     | ✔️  | ✔️  | Barcode  | Set barcode printing left space                                                  |
-| QRCode (TODO) m            | `GS ( k pL pH cn fn n1 n2 (fn=65)`  | `[1D, 28, $^]`     | ✔️  | ❌  | QRCode   | Specify the mode of QR code by n1                                                |
-| QRCode (TODO) m            | `GS ( k pL pH cn fn $n (fn=67)`     | `[1D, 28, $^]`     | ✔️  | ❌  | QRCode   | Set the type of QR code graphic module                                           |
-| QRCode (TODO) m            | `GS ( k pL pH cn fn $n (fn=69)`     | `[1D, 28, $^]`     | ✔️  | ❌  | QRCode   | Set the error correction level error of QR code                                  |
-| QRCode (TODO) m            | `GS ( k pL pH cn fn m d1…dk(fn=80)` | `[1D, 28, $^]`     | ✔️  | ❌  | QRCode   | The data stored for receiving QR codes is in a 2d barcode area                   |
-| QRCode (TODO) m            | `GS ( k pL pH cn fn m (fn=82)`      | `[1D, 28, $^]`     | ✔️  | ❌  | QRCode   | The data information types that transmit QR code graphics are in 2d barcode area |
+| QRCode (TODO) m            | `GS ( k pL pH cn fn n1 n2 (fn=65)`  | `[1D, 28, 6B, $^]` | ✔️  | ❌  | QRCode   | Specify the mode of QR code by n1                                                | (fn=65/0x41)
+| QRCode (TODO) m            | `GS ( k pL pH cn fn $n (fn=67)`     | `[1D, 28, 6B, $^]` | ✔️  | ❌  | QRCode   | Set the type of QR code graphic module                                           | (fn=67/0x43)
+| QRCode (TODO) m            | `GS ( k pL pH cn fn $n (fn=69)`     | `[1D, 28, 6B, $^]` | ✔️  | ❌  | QRCode   | Set the error correction level error of QR code                                  | (fn=69/0x45)
+| QRCode (TODO) m            | `GS ( k pL pH cn fn m d1…dk(fn=80)` | `[1D, 28, 6B, $^]` | ✔️  | ❌  | QRCode   | The data stored for receiving QR codes is in a 2d barcode area                   | (fn=80/0x50)
+| QRCode (TODO) m            | `GS ( k pL pH cn fn m (fn=82)`      | `[1D, 28, 6B, $^]` | ✔️  | ❌  | QRCode   | The data information types that transmit QR code graphics are in 2d barcode area | (fn=82/0x52)
 | SettingsSet m              | `ESC 7 $n $n $n`                    | `[1B, 37, $^]`     | ✔️  | ✔️  | Misc.    | Setting Control Parameter Command                                                |
 | SleepTimeoutSet m          | `ESC 8 $n $n`                       | `[1B, 38, $^]`     | ❌  | ✔️  | Misc.    | Select sleeping parameter                                                        |
 | ChineseCodeFormatSet 1     | `ESC 9 $n`                          | `[1B, 39, $n]`     | ✔️  | ✔️  | Misc.    | Select Chinese code format                                                       |

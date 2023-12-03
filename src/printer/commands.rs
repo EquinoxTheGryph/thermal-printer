@@ -1,47 +1,10 @@
 #![allow(dead_code)]
 
+use super::commands_extend::*;
 use super::sanitize;
 
-trait Encode {
-    fn encode(&self) -> Vec<u8>;
-}
-
 #[derive(Debug)]
-pub struct Millimeters(pub u16);
-impl Millimeters {
-    /// Used for encoding the value into two parts
-    fn encode_double(&self) -> Vec<u8> {
-        let [high, low] = super::split((self.0 as f32 / 0.125f32) as u16);
-        vec![low, high]
-    }
-}
-impl Encode for Millimeters {
-    fn encode(&self) -> Vec<u8> {
-        vec![(self.0 as f32 / 0.125f32) as u8]
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Justify {
-    Left = 0,
-    Center = 1,
-    Right = 2,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct PrintMode {
-    use_font_b: bool,
-    reverse: bool,
-    upside_down: bool,
-    emphasize: bool,
-    double_height: bool,
-    double_width: bool,
-    delete_line: bool,
-    _undefined: bool,
-}
-
-#[derive(Debug)]
-pub(crate) enum Command<'a> {
+pub enum Command<'a> {
     /// Raw Data
     Raw(&'a [u8]),
 
@@ -100,28 +63,28 @@ pub(crate) enum Command<'a> {
     PrintModeSet(PrintMode),
 
     /// Select character size
-    FontSizeSet(u8),
+    FontSizeSet(FontSize),
 
     /// Turn white/black reverse printing mode
     InvertSet(bool),
 
     /// Turn 90°clockwise rotation mode on/off
-    RotateSet(u8),
+    RotateSet(bool),
 
     /// Turn on/off double-strike mode
-    DoubleStrikeSet(u8),
+    DoubleStrikeSet(bool),
 
     /// Turn emphasized mode on/off
-    EmphasizeSet(u8),
+    EmphasizeSet(bool),
 
     /// Set right-side character spacing
-    RightSpaceSet(u8),
+    RightSpaceSet(Millimeters),
 
     /// Turns on/off upside-down printing mode
-    UpsideDownSet(u8),
+    UpsideDownSet(bool),
 
     /// Set the underline dots(0,1,2)
-    UnderlineSet(u8),
+    UnderlineSet(Underline),
 
     /// Select Kanji/Chinese character mode (Note: Unsure if Kanji OR Chinese)
     CharChineseEnable,
@@ -130,7 +93,7 @@ pub(crate) enum Command<'a> {
     CharChineseDisable,
 
     /// Set print mode for Kanji/Chinese characters
-    CharChinesePrintMode(u8),
+    CharChinesePrintMode(PrintModeChinese),
 
     /// Select/Cancel user-defined characters
     CharUserEnable(u8),
@@ -142,10 +105,10 @@ pub(crate) enum Command<'a> {
     CharUserCancel(u8),
 
     /// Select international character set
-    CharInternationalSet(u8),
+    CharInternationalSet(IntlCharset),
 
     /// Select character code table
-    CharCodePageSet(u8),
+    CharCodePageSet(CodePage),
 
     /// Select bit-image mode
     BitmapModeSet(u8),
@@ -204,8 +167,8 @@ pub(crate) enum Command<'a> {
     /// Set barcode printing left space
     BarcodePositionSet(u8),
 
-    /// Specify the mode of QR code by n1
-    QrCode(u8),
+    /// Print a QrCode
+    QrCode(QrCodeData<'a>),
 
     /// Setting Control Parameter Command
     SettingsSet(u8),
@@ -240,59 +203,59 @@ impl<'a> Command<'a> {
         match self {
             Command::Raw(out) => out.to_vec(),
             Command::Text(out) => sanitize(out),
-            Command::LineFeed => vec![0x0A],       //  `[0A]`
-            Command::CarriageReturn => vec![0x0D], //  `[0D]`
-            Command::HorizontalTab => vec![0x09],  //  `[09]`
-            Command::PrintBuffer => vec![0x0D],    //  `[0C]`
-            Command::HTabPositionsSet(arr) => super::compose(&[0x1B, 0x44], arr, &[0x00], 32), //  `[1B, 44, $^, 00]
-            Command::FeedMillimeters(mm) => [vec![0x1B, 0x4A], mm.encode()].concat(), //  `[1B, 4A, $n]`
-            Command::FeedLines(lines) => vec![0x1B, 0x64, *lines], //  `[1B, 64, $n]`
-            Command::OnlineSet(state) => vec![0x1B, 0x3D, *state as u8], //  `[1B, 3D, $n]`
-            Command::LineSpacingReset => vec![0x1B, 0x32],         //  `[1B, 32]`
-            Command::LineSpacingSet(mm) => [vec![0x1B, 0x33], mm.encode()].concat(), //  `[1B, 33, $n]`
-            Command::JustifySet(justify) => vec![0x1B, 0x61, *justify as u8], //  `[1B, 61, $n]`
-            Command::DoubleWidthSet => vec![0x1B, 0x0E],                      //  `[1B, 0E]`
-            Command::DoubleWidthReset => vec![0x1B, 0x14],                    //  `[1B, 14]`
-            Command::LeftMarginSet(mm) => [vec![0x1D, 0x4C], mm.encode_double()].concat(), //  `[1D, 4C, $n, $n]
-            Command::PositionSet(mm) => [vec![0x1B, 0x24], mm.encode_double()].concat(), //  `[1B, 24, $n, $n]
-            Command::LeftSpaceSet(n) => vec![0x1B, 0x42, *n], //  `[1B, 42, $n]`
-            Command::PrintModeSet(_mode) => todo!(),          //  `[1B, 21, $n]`
-            Command::FontSizeSet(_) => todo!(),               //  `[1D, 21, $n]`
-            Command::InvertSet(set) => vec![0x1D, 0x42, *set as u8], //  `[1D, 42, $n]`
-            Command::RotateSet(_) => todo!(),                 //  `[1B, 56, $n]`
-            Command::DoubleStrikeSet(_) => todo!(),           //  `[1B, 47, $n]`
-            Command::EmphasizeSet(_) => todo!(),              //  `[1B, 69, $n]`
-            Command::RightSpaceSet(_) => todo!(),             //  `[1B, 20, $n]`
-            Command::UpsideDownSet(_) => todo!(),             //  `[1B, 7B, $n]`
-            Command::UnderlineSet(_) => todo!(),              //  `[1B, 2D, $n]`
-            Command::CharChineseEnable => todo!(),            //  `[1C, 26]`
-            Command::CharChineseDisable => todo!(),           //  `[1C, 2E]`
-            Command::CharChinesePrintMode(_) => todo!(),      //  `[1C, 21, $n]`
-            Command::CharUserEnable(_) => todo!(),            //  `[1B, 25, $n]`
-            Command::CharUserDefine(_) => todo!(),            //  `[1B, 26, $^]`
-            Command::CharUserCancel(_) => todo!(),            //  `[1B, 3F, $n]`
-            Command::CharInternationalSet(_) => todo!(),      //  `[1B, 52, $n]`
-            Command::CharCodePageSet(_) => todo!(),           //  `[1B, 74, $n]`
-            Command::BitmapModeSet(_) => todo!(),             //  `[1B, 2A, $^]`
-            Command::BitmapDefine(_) => todo!(),              //  `[1D, 2A, $^]`
-            Command::BitmapPrintDefined(_) => todo!(),        //  `[1D, 2F, $n]`
-            Command::BitmapPrintRaster(_) => todo!(),         //  `[1D, 76, 30, $^]
-            Command::BitmapPrintData(_) => todo!(),           //  `[12, 2A, $^]`
-            Command::BitmapPrintDataMsb(_) => todo!(),        //  `[12, 56, $^]`
-            Command::BitmapPrintDataLsb(_) => todo!(),        //  `[12, 76, $^]`
-            Command::BitmapPrintNv(_, _) => todo!(),          //  `[1C, 70, $n, $n]
-            Command::BitmapDefineNv(_) => todo!(),            //  `[1C, 71, $^]`
-            Command::Reset => vec![0x1B, 0x40],               //  `[1B, 40]`
-            Command::RequestStatus(_) => todo!(),             //  `[1D, 72, $n]`
-            Command::RequestStatusAutoEnable(_) => todo!(),   //  `[1D, 61, $n]`
-            Command::RequestStatusPaperSensor => todo!(),     //  `[1B, 76, $n]`
-            Command::RequestStatusDrawer(_) => todo!(),       //  `[1B, 75, $n]`
-            Command::BarcodeHriPositionSet(_) => todo!(),     //  `[1D, 48, $n]`
-            Command::BarcodeHeightSet(_) => todo!(),          //  `[1D, 68, $n]`
-            Command::BarcodeWidthSet(_) => todo!(),           //  `[1D, 77, $n]`
-            Command::BarcodePrint(_) => todo!(),              //  `[1D, 6B, $^]`
-            Command::BarcodePositionSet(_) => todo!(),        //  `[1D, 78, $n]`
-            Command::QrCode(_) => todo!(),
+            Command::LineFeed => vec![0x0A],
+            Command::CarriageReturn => vec![0x0D],
+            Command::HorizontalTab => vec![0x09],
+            Command::PrintBuffer => vec![0x0D],
+            Command::HTabPositionsSet(arr) => super::compose(&[0x1B, 0x44], arr, &[0x00], 32),
+            Command::FeedMillimeters(mm) => [vec![0x1B, 0x4A], mm.encode()].concat(),
+            Command::FeedLines(lines) => vec![0x1B, 0x64, *lines],
+            Command::OnlineSet(state) => vec![0x1B, 0x3D, *state as u8],
+            Command::LineSpacingReset => vec![0x1B, 0x32],
+            Command::LineSpacingSet(mm) => [vec![0x1B, 0x33], mm.encode()].concat(),
+            Command::JustifySet(justify) => vec![0x1B, 0x61, *justify as u8],
+            Command::DoubleWidthSet => vec![0x1B, 0x0E],
+            Command::DoubleWidthReset => vec![0x1B, 0x14],
+            Command::LeftMarginSet(mm) => [vec![0x1D, 0x4C], mm.encode_double()].concat(),
+            Command::PositionSet(mm) => [vec![0x1B, 0x24], mm.encode_double()].concat(),
+            Command::LeftSpaceSet(n) => vec![0x1B, 0x42, *n],
+            Command::PrintModeSet(mode) => [vec![0x1B, 0x21], mode.encode()].concat(),
+            Command::FontSizeSet(size) => [vec![0x1D, 0x21], size.encode()].concat(),
+            Command::InvertSet(set) => vec![0x1D, 0x42, *set as u8],
+            Command::RotateSet(set) => vec![0x1B, 0x56, *set as u8],
+            Command::DoubleStrikeSet(set) => vec![0x1B, 0x47, *set as u8],
+            Command::EmphasizeSet(set) => vec![0x1B, 0x69, *set as u8],
+            Command::RightSpaceSet(mm) => [vec![0x1B, 0x20], mm.encode()].concat(),
+            Command::UpsideDownSet(set) => vec![0x1B, 0x7B, *set as u8],
+            Command::UnderlineSet(underline) => vec![0x1B, 0x2D, *underline as u8],
+            Command::CharChineseEnable => vec![0x1C, 0x26],
+            Command::CharChineseDisable => vec![0x1C, 0x2E],
+            Command::CharChinesePrintMode(mode) => [vec![0x1C, 0x21], mode.encode()].concat(),
+            Command::CharUserEnable(_) => todo!(), //  `[1B, 25, $n]`
+            Command::CharUserDefine(_) => todo!(), //  `[1B, 26, $^]`
+            Command::CharUserCancel(_) => todo!(), //  `[1B, 3F, $n]`
+            Command::CharInternationalSet(charset) => vec![0x1B, 0x52, *charset as u8],
+            Command::CharCodePageSet(cpage) => vec![0x1B, 0x74, *cpage as u8],
+            Command::BitmapModeSet(_) => todo!(), //  `[1B, 2A, $^]`
+            Command::BitmapDefine(_) => todo!(),  //  `[1D, 2A, $^]`
+            Command::BitmapPrintDefined(_) => todo!(), //  `[1D, 2F, $n]`
+            Command::BitmapPrintRaster(_) => todo!(), //  `[1D, 76, 30, $^]
+            Command::BitmapPrintData(_) => todo!(), //  `[12, 2A, $^]`
+            Command::BitmapPrintDataMsb(_) => todo!(), //  `[12, 56, $^]`
+            Command::BitmapPrintDataLsb(_) => todo!(), //  `[12, 76, $^]`
+            Command::BitmapPrintNv(_, _) => todo!(), //  `[1C, 70, $n, $n]
+            Command::BitmapDefineNv(_) => todo!(), //  `[1C, 71, $^]`
+            Command::Reset => vec![0x1B, 0x40],   //  `[1B, 40]`
+            Command::RequestStatus(_) => todo!(), //  `[1D, 72, $n]`
+            Command::RequestStatusAutoEnable(_) => todo!(), //  `[1D, 61, $n]`
+            Command::RequestStatusPaperSensor => todo!(), //  `[1B, 76, $n]`
+            Command::RequestStatusDrawer(_) => todo!(), //  `[1B, 75, $n]`
+            Command::BarcodeHriPositionSet(_) => todo!(), //  `[1D, 48, $n]`
+            Command::BarcodeHeightSet(_) => todo!(), //  `[1D, 68, $n]`
+            Command::BarcodeWidthSet(_) => todo!(), //  `[1D, 77, $n]`
+            Command::BarcodePrint(_) => todo!(),  //  `[1D, 6B, $^]`
+            Command::BarcodePositionSet(_) => todo!(), //  `[1D, 78, $n]`
+            Command::QrCode(data) => data.encode(),
             Command::SettingsSet(_) => todo!(), // `[1B, 37, $^]`
             Command::SleepTimeoutSet(_) => todo!(), // `[1B, 38, $^]`
             Command::ChineseCodeFormatSet(_) => todo!(), // `[1B, 39, $n]`
