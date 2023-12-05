@@ -6,7 +6,7 @@ pub trait PrinterCommand<'a> {
 }
 
 /// Combines three arrays into one, used for composing an encoded command
-fn compose<T>(prefix: &[T], middle: &[T], suffix: &[T], middle_limit: usize) -> Vec<T>
+pub fn compose<T>(prefix: &[T], middle: &[T], suffix: &[T], middle_limit: usize) -> Vec<T>
 where
     T: Clone,
 {
@@ -16,7 +16,7 @@ where
 }
 
 /// Only allow printable characters through
-fn sanitize<'a>(input: &'a str) -> Vec<u8> {
+pub fn sanitize<'a>(input: &'a str) -> Vec<u8> {
     input
         .as_bytes()
         .iter()
@@ -26,6 +26,6 @@ fn sanitize<'a>(input: &'a str) -> Vec<u8> {
 }
 
 /// Split a u16 into two u8s
-fn split(value: u16) -> [u8; 2] {
+pub fn split(value: u16) -> [u8; 2] {
     [(value >> 8) as u8, (value & 0xff) as u8]
 }

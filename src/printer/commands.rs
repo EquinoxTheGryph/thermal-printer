@@ -11,6 +11,9 @@ pub enum Command<'a> {
     /// Text Data (Unsafe characters omitted)
     Text(&'a str),
 
+    /// Select bit-image mode
+    Bitmap(BitmapData<'a>),
+
     /// Print and line feed
     LineFeed,
 
@@ -203,6 +206,7 @@ impl<'a> Command<'a> {
         match self {
             Command::Raw(out) => out.to_vec(),
             Command::Text(out) => sanitize(out),
+            Command::Bitmap(data) => data.encode(),
             Command::LineFeed => vec![0x0A],
             Command::CarriageReturn => vec![0x0D],
             Command::HorizontalTab => vec![0x09],

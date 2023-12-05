@@ -273,3 +273,32 @@ pub enum QrCodeErrorCorrection {
     High = 50,
     VeryHigh = 51,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct BitmapData<'a> {
+    /// Width (1-384)
+    pub width: u16,
+    /// Height (1-n)
+    pub height: u16,
+    /// The actual data (Encoding: Each byte is a chunk of 8 pixels high)
+    pub data: &'a [u8],
+}
+impl<'a> Encode for BitmapData<'a> {
+    fn encode(&self) -> Vec<u8> {
+        let density = 1u8;
+        let [width_h, width_l]: [u8; 2] = split(self.width.min(384));
+
+        let mut collected: Vec<u8> = vec![];
+
+        self.data
+            .chunks_exact(self.width.into())
+            .take(self.height.max(1) as usize)
+            .for_each(|chunk| {
+                collected.append(
+                    &mut [&[0x1Bu8, 0x2A, density, width_l, width_h], chunk, &[0x0Au8]].concat(),
+                );
+            });
+
+        collected
+    }
+}
