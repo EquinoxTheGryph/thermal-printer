@@ -4,7 +4,7 @@ A project to control a generic thermal printer module, made in Rust.
 
 ## Supported Printers
 
-- EM7820
+- EM5820
 - ...and probably other printers that support ESC/POS commands
 
 ## Goals
