@@ -228,7 +228,7 @@ impl<'a> Command<'a> {
             Command::InvertSet(set) => vec![0x1D, 0x42, *set as u8],
             Command::RotateSet(set) => vec![0x1B, 0x56, *set as u8],
             Command::DoubleStrikeSet(set) => vec![0x1B, 0x47, *set as u8],
-            Command::EmphasizeSet(set) => vec![0x1B, 0x69, *set as u8],
+            Command::EmphasizeSet(set) => vec![0x1B, 0x45, *set as u8],
             Command::RightSpaceSet(mm) => [vec![0x1B, 0x20], mm.encode()].concat(),
             Command::UpsideDownSet(set) => vec![0x1B, 0x7B, *set as u8],
             Command::UnderlineSet(underline) => vec![0x1B, 0x2D, *underline as u8],

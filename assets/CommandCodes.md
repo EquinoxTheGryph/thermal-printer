@@ -33,7 +33,7 @@ There is some nuance between the two sourced documentation, this is a collection
 | InvertSet 1                | `GS B $n`                           | `[1D, 42, $n]`     | ✔️  | ✔️  | Char     | Turn white/black reverse printing mode                                           |
 | RotateSet 1                | `ESC V $n`                          | `[1B, 56, $n]`     | ✔️  | ✔️  | Char     | Turn 90°clockwise rotation mode on/off                                           |
 | DoubleStrikeSet 1          | `ESC G $n`                          | `[1B, 47, $n]`     | ✔️  | ✔️  | Char     | Turn on/off double-strike mode                                                   |
-| EmphasizeSet 1             | `ESC E $n`                          | `[1B, 69, $n]`     | ✔️  | ✔️  | Char     | Turn emphasized mode on/off                                                      |
+| EmphasizeSet 1             | `ESC E $n`                          | `[1B, 45, $n]`     | ✔️  | ✔️  | Char     | Turn emphasized mode on/off                                                      |
 | RightSpaceSet 1            | `ESC SP $n`                         | `[1B, 20, $n]`     | ❌  | ✔️  | Char     | Set right-side character spacing                                                 |
 | UpsideDownSet 1            | `ESC { $n`                          | `[1B, 7B, $n]`     | ✔️  | ✔️  | Char     | Turns on/off upside-down printing mode                                           |
 | UnderlineSet 1             | `ESC - $n`                          | `[1B, 2D, $n]`     | ✔️  | ✔️  | Char     | Set the underline dots(0,1,2)                                                    |

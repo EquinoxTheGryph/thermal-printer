@@ -24,9 +24,9 @@ impl Encode for Millimeters {
 #[derive(Debug)]
 pub struct FontSize {
     /// The width of the font (0 to 4, 0 = default)
-    width: u8,
+    pub width: u8,
     /// The height of the font (0 to 4, 0 = default)
-    height: u8,
+    pub height: u8,
 }
 impl Encode for FontSize {
     fn encode(&self) -> Vec<u8> {
@@ -285,9 +285,13 @@ pub struct BitmapData<'a> {
 }
 impl<'a> Encode for BitmapData<'a> {
     fn encode(&self) -> Vec<u8> {
+        // 0, 1, 32, 33 (See documentation)
         let density = 1u8;
+
+        // Split the width into a low and high value
         let [width_h, width_l]: [u8; 2] = split(self.width.min(384));
 
+        // Init the vec
         let mut collected: Vec<u8> = vec![];
 
         self.data
@@ -295,10 +299,19 @@ impl<'a> Encode for BitmapData<'a> {
             .take(self.height.max(1) as usize)
             .for_each(|chunk| {
                 collected.append(
-                    &mut [&[0x1Bu8, 0x2A, density, width_l, width_h], chunk, &[0x0Au8]].concat(),
+                    &mut [
+                        // Feed the initial row data
+                        vec![0x1Bu8, 0x2A, density, width_l, width_h],
+                        // Insert the actual data
+                        chunk.to_vec(),
+                        // Line feed
+                        vec![0x0Au8], // TODO: Maybe use feed mm?
+                    ]
+                    .concat(),
                 );
             });
 
+        // Return the collected data
         collected
     }
 }
