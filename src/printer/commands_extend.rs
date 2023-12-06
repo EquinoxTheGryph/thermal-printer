@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::ops::{Range, RangeBounds};
+
 use crate::printer::split;
 
 pub trait Encode {
@@ -274,19 +276,21 @@ pub enum QrCodeErrorCorrection {
     VeryHigh = 51,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct BitmapData<'a> {
+#[derive(Debug, Clone)]
+pub struct BitmapData {
     /// Width (1-384)
     pub width: u16,
     /// Height (1-n)
     pub height: u16,
     /// The actual data (Encoding: Each byte is a chunk of 8 pixels high)
-    pub data: &'a [u8],
+    pub data: Vec<u8>,
+    /// The density of the data (0, 1, 32, 33 (See documentation))
+    pub density: BitmapDensity,
 }
-impl<'a> Encode for BitmapData<'a> {
+impl<'a> Encode for BitmapData {
     fn encode(&self) -> Vec<u8> {
         // 0, 1, 32, 33 (See documentation)
-        let density = 1u8;
+        let density = self.density as u8;
 
         // Split the width into a low and high value
         let [width_h, width_l]: [u8; 2] = split(self.width.min(384));
@@ -313,5 +317,49 @@ impl<'a> Encode for BitmapData<'a> {
 
         // Return the collected data
         collected
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BitmapDensity {
+    Single8Bit = 0,
+    Double8Bit = 1,
+    Single24Bit = 32,
+    Double24Bit = 33,
+}
+impl BitmapDensity {
+    pub fn bytes(&self) -> u8 {
+        match *self {
+            BitmapDensity::Single8Bit => 1,
+            BitmapDensity::Double8Bit => 1,
+            BitmapDensity::Single24Bit => 3,
+            BitmapDensity::Double24Bit => 3,
+        }
+    }
+
+    pub fn bits(&self) -> u8 {
+        match *self {
+            BitmapDensity::Single8Bit => 8,
+            BitmapDensity::Double8Bit => 8,
+            BitmapDensity::Single24Bit => 24,
+            BitmapDensity::Double24Bit => 24,
+        }
+    }
+
+    pub fn is_double(&self) -> bool {
+        match *self {
+            BitmapDensity::Single8Bit => false,
+            BitmapDensity::Double8Bit => true,
+            BitmapDensity::Single24Bit => false,
+            BitmapDensity::Double24Bit => true,
+        }
+    }
+}
+impl IntoIterator for BitmapDensity {
+    type Item = u8;
+    type IntoIter = std::ops::Range<u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        0..self.bits()
     }
 }

@@ -12,7 +12,7 @@ pub enum Command<'a> {
     Text(&'a str),
 
     /// Select bit-image mode
-    Bitmap(BitmapData<'a>),
+    Bitmap(BitmapData),
 
     /// Print and line feed
     LineFeed,
