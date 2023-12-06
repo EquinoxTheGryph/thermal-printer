@@ -40,10 +40,10 @@ fn send_data(destination: &dyn WriteBuffer, buf: &[u8]) -> std::io::Result<()> {
     destination.write_buffer(buf)
 }
 
-fn print() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     use commands::Command;
 
-    let density = BitmapDensity::Double24Bit;
+    let density = BitmapDensity::Single24Bit;
     let bitmap_data = to_bitmap(density, image::open("sample/in.png")?);
 
     let payload: Vec<Command> = vec![
@@ -140,12 +140,6 @@ fn print() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    print()?;
-
-    Ok(())
-}
-
 // Apply an algorithm to get the byte value of a certain chunk on an image
 fn to_bitmap<'a>(density: BitmapDensity, image_input: DynamicImage) -> BitmapData {
     // Process image
@@ -155,12 +149,30 @@ fn to_bitmap<'a>(density: BitmapDensity, image_input: DynamicImage) -> BitmapDat
     let max_width = 384u32;
     let filter = image::imageops::FilterType::Lanczos3;
 
+    // Limit width
     if image.width() >= max_width {
         println!("Resizing image due to it being to big");
         image = image.resize(max_width, u32::MAX, filter);
     }
 
+    // Account for vertical stretching, depending on the density
+    match density {
+        BitmapDensity::Single8Bit => {
+            image = image.resize_exact(image.width() / 2, image.height() / 3, filter);
+        }
+        BitmapDensity::Double8Bit => {
+            image = image.resize_exact(image.width(), image.height() / 3, filter);
+        }
+        BitmapDensity::Single24Bit => {
+            image = image.resize_exact(image.width() / 2, image.height(), filter);
+        }
+        BitmapDensity::Double24Bit => {}
+    }
+
+    // Apply the dither filter
     image = image.apply(&dither::ATKINSON.with_palette(palette.to_vec()));
+
+    // Convert to Luma8 (Alpha)
     let buffer = image.to_luma_alpha8();
 
     // Convert buffer
@@ -170,8 +182,11 @@ fn to_bitmap<'a>(density: BitmapDensity, image_input: DynamicImage) -> BitmapDat
     let height = image.height();
     let mut out: Vec<u8> = vec![];
 
+    // For each {chunk_size} rows
     for row_chunk in 0..=((height - 1) / chunk_size) {
+        // For each horizontal pixel
         for column in 0..width {
+            // For each sub-chunk
             for sub_chunk in 0..bytes_per_chunk {
                 let start = ((row_chunk) * 8 * bytes_per_chunk) + (sub_chunk * 8);
                 let end = start + 8;
