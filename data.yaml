@@ -1,0 +1,100 @@
+data:
+- type: Reset
+- type: Text
+  value: Demo Page
+- type: InvertSet
+  value: true
+- type: Text
+  value: Invert
+- type: LineFeed
+- type: InvertSet
+  value: false
+- type: FontSizeSet
+  value:
+    width: 0
+    height: 2
+- type: Text
+  value: Double Height
+- type: LineFeed
+- type: FontSizeSet
+  value:
+    width: 0
+    height: 0
+- type: JustifySet
+  value: Right
+- type: Text
+  value: Right Justified
+- type: LineFeed
+- type: JustifySet
+  value: Center
+- type: Text
+  value: Center Justified
+- type: LineFeed
+- type: JustifySet
+  value: Left
+- type: Text
+  value: Left Justified
+- type: LineFeed
+- type: EmphasizeSet
+  value: true
+- type: Text
+  value: Bold Text
+- type: LineFeed
+- type: EmphasizeSet
+  value: false
+- type: UnderlineSet
+  value: Thin
+- type: Text
+  value: Underlined Text
+- type: LineFeed
+- type: UnderlineSet
+  value: Off
+- type: FontSizeSet
+  value:
+    width: 4
+    height: 4
+- type: Text
+  value: XLg
+- type: LineFeed
+- type: FontSizeSet
+  value:
+    width: 2
+    height: 2
+- type: Text
+  value: Large
+- type: LineFeed
+- type: FontSizeSet
+  value:
+    width: 1
+    height: 1
+- type: Text
+  value: Medium
+- type: LineFeed
+- type: LineFeed
+- type: Reset
+- type: QrCode
+  value:
+    error_correction: Medium
+    size: 3
+    data:
+    - 72
+    - 101
+    - 108
+    - 108
+    - 111
+    - 32
+    - 119
+    - 111
+    - 114
+    - 108
+    - 100
+    - 33
+- type: Image
+  value:
+    path: sample/in.png
+    density: Double8Bit
+- type: LineFeed
+target:
+  type: Serial
+  port: /dev/ttyUSB0
+  baud: 9600

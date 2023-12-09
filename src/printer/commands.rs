@@ -3,7 +3,10 @@
 use super::commands_extend::*;
 use super::sanitize;
 
-#[derive(Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type", content = "value")]
 pub enum Command<'a> {
     /// Raw Data
     Raw(&'a [u8]),
@@ -11,8 +14,11 @@ pub enum Command<'a> {
     /// Text Data (Unsafe characters omitted)
     Text(&'a str),
 
-    /// Select bit-image mode
+    /// Select bitmap from data buffer
     Bitmap(BitmapData),
+
+    /// Select image from path (Will get auto-converted)
+    Image(ImageData<'a>),
 
     /// Print and line feed
     LineFeed,
@@ -202,39 +208,39 @@ pub enum Command<'a> {
 }
 
 impl<'a> Command<'a> {
-    pub fn encode(&self) -> Vec<u8> {
-        match self {
+    pub fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(match self {
             Command::Raw(out) => out.to_vec(),
             Command::Text(out) => sanitize(out),
-            Command::Bitmap(data) => data.encode(),
+            Command::Bitmap(data) => data.encode()?,
             Command::LineFeed => vec![0x0A],
             Command::CarriageReturn => vec![0x0D],
             Command::HorizontalTab => vec![0x09],
             Command::PrintBuffer => vec![0x0D],
             Command::HTabPositionsSet(arr) => super::compose(&[0x1B, 0x44], arr, &[0x00], 32),
-            Command::FeedMillimeters(mm) => [vec![0x1B, 0x4A], mm.encode()].concat(),
+            Command::FeedMillimeters(mm) => [vec![0x1B, 0x4A], mm.encode()?].concat(),
             Command::FeedLines(lines) => vec![0x1B, 0x64, *lines],
             Command::OnlineSet(state) => vec![0x1B, 0x3D, *state as u8],
             Command::LineSpacingReset => vec![0x1B, 0x32],
-            Command::LineSpacingSet(mm) => [vec![0x1B, 0x33], mm.encode()].concat(),
+            Command::LineSpacingSet(mm) => [vec![0x1B, 0x33], mm.encode()?].concat(),
             Command::JustifySet(justify) => vec![0x1B, 0x61, *justify as u8],
             Command::DoubleWidthSet => vec![0x1B, 0x0E],
             Command::DoubleWidthReset => vec![0x1B, 0x14],
             Command::LeftMarginSet(mm) => [vec![0x1D, 0x4C], mm.encode_double()].concat(),
             Command::PositionSet(mm) => [vec![0x1B, 0x24], mm.encode_double()].concat(),
             Command::LeftSpaceSet(n) => vec![0x1B, 0x42, *n],
-            Command::PrintModeSet(mode) => [vec![0x1B, 0x21], mode.encode()].concat(),
-            Command::FontSizeSet(size) => [vec![0x1D, 0x21], size.encode()].concat(),
+            Command::PrintModeSet(mode) => [vec![0x1B, 0x21], mode.encode()?].concat(),
+            Command::FontSizeSet(size) => [vec![0x1D, 0x21], size.encode()?].concat(),
             Command::InvertSet(set) => vec![0x1D, 0x42, *set as u8],
             Command::RotateSet(set) => vec![0x1B, 0x56, *set as u8],
             Command::DoubleStrikeSet(set) => vec![0x1B, 0x47, *set as u8],
             Command::EmphasizeSet(set) => vec![0x1B, 0x45, *set as u8],
-            Command::RightSpaceSet(mm) => [vec![0x1B, 0x20], mm.encode()].concat(),
+            Command::RightSpaceSet(mm) => [vec![0x1B, 0x20], mm.encode()?].concat(),
             Command::UpsideDownSet(set) => vec![0x1B, 0x7B, *set as u8],
             Command::UnderlineSet(underline) => vec![0x1B, 0x2D, *underline as u8],
             Command::CharChineseEnable => vec![0x1C, 0x26],
             Command::CharChineseDisable => vec![0x1C, 0x2E],
-            Command::CharChinesePrintMode(mode) => [vec![0x1C, 0x21], mode.encode()].concat(),
+            Command::CharChinesePrintMode(mode) => [vec![0x1C, 0x21], mode.encode()?].concat(),
             Command::CharUserEnable(_) => todo!(), //  `[1B, 25, $n]`
             Command::CharUserDefine(_) => todo!(), //  `[1B, 26, $^]`
             Command::CharUserCancel(_) => todo!(), //  `[1B, 3F, $n]`
@@ -259,8 +265,8 @@ impl<'a> Command<'a> {
             Command::BarcodeWidthSet(_) => todo!(), //  `[1D, 77, $n]`
             Command::BarcodePrint(_) => todo!(),  //  `[1D, 6B, $^]`
             Command::BarcodePositionSet(_) => todo!(), //  `[1D, 78, $n]`
-            Command::QrCode(data) => data.encode(),
-            Command::PrintSettingsSet(data) => [vec![0x1B, 0x37], data.encode()].concat(),
+            Command::QrCode(data) => data.encode()?,
+            Command::PrintSettingsSet(data) => [vec![0x1B, 0x37], data.encode()?].concat(),
             Command::SleepTimeoutSet(_) => todo!(), // `[1B, 38, $^]`
             Command::ChineseCodeFormatSet(_) => todo!(), // `[1B, 39, $n]`
             Command::PrintingDensitySet(_) => todo!(), // `[12, 23, $n]`
@@ -269,6 +275,7 @@ impl<'a> Command<'a> {
             Command::RealTimeEnable(_) => todo!(),  // `[10, 04, $n]`
             Command::FeedToMark => vec![0x12, 0x45], // `[12, 45]`
             Command::MarkPaperLengthSet(_) => todo!(), // `[12, 6D, $^]`
-        }
+            Command::Image(data) => data.encode()?,
+        })
     }
 }

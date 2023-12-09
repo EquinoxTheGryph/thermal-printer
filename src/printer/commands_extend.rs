@@ -1,13 +1,20 @@
 #![allow(dead_code)]
+
+use std::{error::Error, process::Command};
+
 use crate::printer::split;
+use serde::{Deserialize, Serialize};
+
+// TODO: Custom Error Enum
+pub type EncodeError = Box<dyn Error>;
 
 /// The main trait to allow for turning a command to a set of device instructions
 pub trait Encode {
-    fn encode(&self) -> Vec<u8>;
+    fn encode(&self) -> Result<Vec<u8>, EncodeError>;
 }
 
 /// Utility to convert millimeters to device units
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Millimeters(pub u16);
 impl Millimeters {
     /// Used for encoding the value into two parts
@@ -17,13 +24,13 @@ impl Millimeters {
     }
 }
 impl Encode for Millimeters {
-    fn encode(&self) -> Vec<u8> {
-        vec![(self.0 as f32 / 0.125f32) as u8]
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![(self.0 as f32 / 0.125f32) as u8])
     }
 }
 
 /// Font size settings
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct FontSize {
     /// The width of the font (0 to 4, 0 = default)
     pub width: u8,
@@ -31,13 +38,13 @@ pub struct FontSize {
     pub height: u8,
 }
 impl Encode for FontSize {
-    fn encode(&self) -> Vec<u8> {
-        vec![((self.width % 5) << 4) + (self.height % 5)]
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![((self.width % 5) << 4) + (self.height % 5)])
     }
 }
 
 /// Justification settings (Horizontal alignment)
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Justify {
     Left = 0,
     Center = 1,
@@ -45,7 +52,7 @@ pub enum Justify {
 }
 
 /// Underline settings
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Underline {
     Off = 0,
     Thin = 1,
@@ -53,7 +60,7 @@ pub enum Underline {
 }
 
 /// International character set selection
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum IntlCharset {
     America = 0,
     France = 1,
@@ -74,7 +81,7 @@ pub enum IntlCharset {
 }
 
 /// Print mode settings
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct PrintMode {
     alt_font: bool,
     reverse: bool,
@@ -86,8 +93,8 @@ pub struct PrintMode {
     _undefined: bool,
 }
 impl Encode for PrintMode {
-    fn encode(&self) -> Vec<u8> {
-        vec![
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![
             (self.alt_font as u8)
                 | ((self.reverse as u8) << 1)
                 | ((self.upside_down as u8) << 2)
@@ -96,12 +103,12 @@ impl Encode for PrintMode {
                 | ((self.double_width as u8) << 5)
                 | ((self.delete_line as u8) << 6)
                 | ((self._undefined as u8) << 7),
-        ]
+        ])
     }
 }
 
 /// Heating Settings
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct PrintSettings {
     /// Maximum number of heating points (n × 8 points, defaults to 80 points (n = 9)))
     pub points: u8,
@@ -111,31 +118,31 @@ pub struct PrintSettings {
     pub interval: u8,
 }
 impl Encode for PrintSettings {
-    fn encode(&self) -> Vec<u8> {
-        vec![self.points, self.time, self.interval]
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![self.points, self.time, self.interval])
     }
 }
 
 /// Printing mode for Chinese characters
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct PrintModeChinese {
     double_height: bool,
     double_width: bool,
     underline: bool,
 }
 impl Encode for PrintModeChinese {
-    fn encode(&self) -> Vec<u8> {
-        vec![
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![
             ((self.double_height as u8) << 2)
                 | ((self.double_width as u8) << 3)
                 | ((self.underline as u8) << 7),
-        ]
+        ])
     }
 }
 
 /// Code page settings
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum CodePage {
     CP437_USA_STANDARD_EUROPE = 0,
     KATAKANA = 1,
@@ -188,7 +195,7 @@ pub enum CodePage {
 }
 
 /// QRCode processing
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct QrCodeData<'a> {
     /// Set the error correction factor
     pub error_correction: QrCodeErrorCorrection,
@@ -198,7 +205,7 @@ pub struct QrCodeData<'a> {
     pub data: &'a [u8],
 }
 impl<'a> Encode for QrCodeData<'a> {
-    fn encode(&self) -> Vec<u8> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         // Note: Always add 3 to the size (Reason Unknown)
         let [len_h, len_l] = split(self.data.len() as u16 + 3);
         // println!("l {} h {}", len_l, len_h);
@@ -270,7 +277,7 @@ impl<'a> Encode for QrCodeData<'a> {
         // println!("v_verify             = {v_verify:0>2x?}");
         // println!("v_print              = {v_print:0>2x?}");
 
-        [
+        Ok([
             v_size,
             v_error_correction,
             v_data,
@@ -278,7 +285,7 @@ impl<'a> Encode for QrCodeData<'a> {
             v_verify,
             v_print,
         ]
-        .concat()
+        .concat())
     }
 }
 impl<'a> Default for QrCodeData<'a> {
@@ -291,7 +298,7 @@ impl<'a> Default for QrCodeData<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum QrCodeErrorCorrection {
     Low = 48,
     Medium = 49,
@@ -300,7 +307,7 @@ pub enum QrCodeErrorCorrection {
 }
 
 /// Bitmap printing
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BitmapData {
     /// Width (1-384)
     pub width: u16,
@@ -312,7 +319,7 @@ pub struct BitmapData {
     pub density: BitmapDensity,
 }
 impl<'a> Encode for BitmapData {
-    fn encode(&self) -> Vec<u8> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         // 0, 1, 32, 33 (See documentation)
         let density = self.density as u8;
 
@@ -340,11 +347,11 @@ impl<'a> Encode for BitmapData {
             });
 
         // Return the collected data
-        collected
+        Ok(collected)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum BitmapDensity {
     Single8Bit = 0,
     Double8Bit = 1,
@@ -385,5 +392,18 @@ impl IntoIterator for BitmapDensity {
 
     fn into_iter(self) -> Self::IntoIter {
         0..self.bits()
+    }
+}
+
+/// Image data
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct ImageData<'a> {
+    pub path: &'a str,
+    pub density: BitmapDensity,
+}
+impl<'a> Encode for ImageData<'a> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let bitmap_data = super::to_bitmap(self.density, image::open(self.path)?);
+        super::commands::Command::Bitmap(bitmap_data).encode()
     }
 }
