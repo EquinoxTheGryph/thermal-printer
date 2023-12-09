@@ -174,7 +174,7 @@ pub enum Command<'a> {
     QrCode(QrCodeData<'a>),
 
     /// Setting Control Parameter Command
-    SettingsSet(u8),
+    PrintSettingsSet(PrintSettings),
 
     /// Select sleeping parameter
     SleepTimeoutSet(u8),
@@ -260,13 +260,13 @@ impl<'a> Command<'a> {
             Command::BarcodePrint(_) => todo!(),  //  `[1D, 6B, $^]`
             Command::BarcodePositionSet(_) => todo!(), //  `[1D, 78, $n]`
             Command::QrCode(data) => data.encode(),
-            Command::SettingsSet(_) => todo!(), // `[1B, 37, $^]`
+            Command::PrintSettingsSet(data) => [vec![0x1B, 0x37], data.encode()].concat(),
             Command::SleepTimeoutSet(_) => todo!(), // `[1B, 38, $^]`
             Command::ChineseCodeFormatSet(_) => todo!(), // `[1B, 39, $n]`
             Command::PrintingDensitySet(_) => todo!(), // `[12, 23, $n]`
             Command::PrintTestPage => vec![0x12, 0x54], // `[12, 54]`
-            Command::ButtonsEnable(_) => todo!(), // `[1B, 63, 35, $n]`
-            Command::RealTimeEnable(_) => todo!(), // `[10, 04, $n]`
+            Command::ButtonsEnable(_) => todo!(),   // `[1B, 63, 35, $n]`
+            Command::RealTimeEnable(_) => todo!(),  // `[10, 04, $n]`
             Command::FeedToMark => vec![0x12, 0x45], // `[12, 45]`
             Command::MarkPaperLengthSet(_) => todo!(), // `[12, 6D, $^]`
         }

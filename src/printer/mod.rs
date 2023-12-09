@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod commands_extend;
+pub mod bitmap;
 
 pub trait PrinterCommand<'a> {
     fn encode(&self) -> Vec<u8>;

@@ -1,13 +1,12 @@
 #![allow(dead_code)]
-
-use std::ops::{Range, RangeBounds};
-
 use crate::printer::split;
 
+/// The main trait to allow for turning a command to a set of device instructions
 pub trait Encode {
     fn encode(&self) -> Vec<u8>;
 }
 
+/// Utility to convert millimeters to device units
 #[derive(Debug)]
 pub struct Millimeters(pub u16);
 impl Millimeters {
@@ -23,6 +22,7 @@ impl Encode for Millimeters {
     }
 }
 
+/// Font size settings
 #[derive(Debug)]
 pub struct FontSize {
     /// The width of the font (0 to 4, 0 = default)
@@ -36,6 +36,7 @@ impl Encode for FontSize {
     }
 }
 
+/// Justification settings (Horizontal alignment)
 #[derive(Debug, Clone, Copy)]
 pub enum Justify {
     Left = 0,
@@ -43,6 +44,7 @@ pub enum Justify {
     Right = 2,
 }
 
+/// Underline settings
 #[derive(Debug, Clone, Copy)]
 pub enum Underline {
     Off = 0,
@@ -50,6 +52,7 @@ pub enum Underline {
     Bold = 2,
 }
 
+/// International character set selection
 #[derive(Debug, Clone, Copy)]
 pub enum IntlCharset {
     America = 0,
@@ -70,6 +73,7 @@ pub enum IntlCharset {
     China = 15,
 }
 
+/// Print mode settings
 #[derive(Debug, Clone, Copy)]
 pub struct PrintMode {
     alt_font: bool,
@@ -96,6 +100,23 @@ impl Encode for PrintMode {
     }
 }
 
+/// Heating Settings
+#[derive(Debug, Clone, Copy)]
+pub struct PrintSettings {
+    /// Maximum number of heating points (n × 8 points, defaults to 80 points (n = 9)))
+    pub points: u8,
+    /// Heating time (n × 10µs, defaults to 800µs (n = 80))
+    pub time: u8,
+    /// Printing Interval (n × 10µs, defaults to 20µs (n = 2))
+    pub interval: u8,
+}
+impl Encode for PrintSettings {
+    fn encode(&self) -> Vec<u8> {
+        vec![self.points, self.time, self.interval]
+    }
+}
+
+/// Printing mode for Chinese characters
 #[derive(Debug, Clone, Copy)]
 pub struct PrintModeChinese {
     double_height: bool,
@@ -112,6 +133,7 @@ impl Encode for PrintModeChinese {
     }
 }
 
+/// Code page settings
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy)]
 pub enum CodePage {
@@ -165,6 +187,7 @@ pub enum CodePage {
     CP874 = 47,
 }
 
+/// QRCode processing
 #[derive(Debug, Clone, Copy)]
 pub struct QrCodeData<'a> {
     /// Set the error correction factor
@@ -178,7 +201,7 @@ impl<'a> Encode for QrCodeData<'a> {
     fn encode(&self) -> Vec<u8> {
         // Note: Always add 3 to the size (Reason Unknown)
         let [len_h, len_l] = split(self.data.len() as u16 + 3);
-        println!("l {} h {}", len_l, len_h);
+        // println!("l {} h {}", len_l, len_h);
 
         // Set the size
         let v_size = vec![
@@ -241,11 +264,11 @@ impl<'a> Encode for QrCodeData<'a> {
             0x30, // Unknown
         ];
 
-        println!("v_size               = {v_size:0>2x?}");
-        println!("v_error_correction   = {v_error_correction:0>2x?}");
-        println!("v_data               = {v_data:0>2x?}");
-        println!("v_verify             = {v_verify:0>2x?}");
-        println!("v_print              = {v_print:0>2x?}");
+        // println!("v_size               = {v_size:0>2x?}");
+        // println!("v_error_correction   = {v_error_correction:0>2x?}");
+        // println!("v_data               = {v_data:0>2x?}");
+        // println!("v_verify             = {v_verify:0>2x?}");
+        // println!("v_print              = {v_print:0>2x?}");
 
         [
             v_size,
@@ -276,6 +299,7 @@ pub enum QrCodeErrorCorrection {
     VeryHigh = 51,
 }
 
+/// Bitmap printing
 #[derive(Debug, Clone)]
 pub struct BitmapData {
     /// Width (1-384)

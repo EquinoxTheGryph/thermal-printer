@@ -1,49 +1,24 @@
 #![allow(dead_code)]
 // Programmed specifically for EM5820 Thermal Printer Modules
+mod destinations;
 mod printer;
 
-use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
-
+use destinations::WriteBuffer;
 use image::DynamicImage;
 use image_effects::colour::colours::srgb::{BLACK, WHITE};
 use image_effects::dither;
 use image_effects::effect::Affectable;
 use printer::commands_extend::{BitmapData, BitmapDensity};
 use printer::*;
+use std::error::Error;
 
+use crate::destinations::SerialDestination;
 use crate::printer::commands_extend::QrCodeData;
-
-trait WriteBuffer {
-    fn write_buffer(&self, buf: &[u8]) -> std::io::Result<()>;
-}
-
-struct FileDestination<'a>(&'a str);
-
-impl<'a> WriteBuffer for FileDestination<'a> {
-    fn write_buffer(&self, buf: &[u8]) -> std::io::Result<()> {
-        let mut file = File::options().append(true).open(self.0)?;
-
-        for chunk in buf.chunks(1) {
-            file.write(chunk)?;
-            // println!("Printed Chunk {chunk:?}");
-            // std::thread::sleep(std::time::Duration::from_millis(1));
-        }
-
-        Ok(())
-    }
-}
-
-/// Send the given payload to the printer
-fn send_data(destination: &dyn WriteBuffer, buf: &[u8]) -> std::io::Result<()> {
-    destination.write_buffer(buf)
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     use commands::Command;
 
-    let density = BitmapDensity::Single24Bit;
+    let density = BitmapDensity::Double8Bit;
     let bitmap_data = to_bitmap(density, image::open("sample/in.png")?);
 
     let payload: Vec<Command> = vec![
@@ -125,7 +100,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         Command::LineFeed,
     ];
 
-    let destination = FileDestination("/dev/usb/lp0");
+    // let destination = FileDestination {
+    //     path: "/dev/usb/lp0",
+    // };
+
+    let destination = SerialDestination {
+        port: "/dev/ttyUSB0",
+        baud: 9600,
+    };
 
     let mut data: Vec<u8> = vec![];
 
@@ -135,7 +117,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // print!("{:?}", data);
 
-    send_data(&destination, &data)?;
+    destination.write_buffer(&data)?;
 
     Ok(())
 }
